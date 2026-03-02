@@ -3,9 +3,18 @@ const bcrypt = require('bcryptjs');
 const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
-  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
   name: { type: DataTypes.STRING, allowNull: false },
-  email: { type: DataTypes.STRING, allowNull: false, unique: true },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    set(val) { this.setDataValue('email', val.toLowerCase().trim()); },
+  },
   phone: { type: DataTypes.STRING },
   password: { type: DataTypes.STRING, allowNull: false },
   role: {
@@ -13,27 +22,19 @@ const User = sequelize.define('User', {
     defaultValue: 'sales_agent',
   },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
-  lastLogin: { type: DataTypes.DATE },
-  avatar: { type: DataTypes.STRING },
+  resetPasswordToken: { type: DataTypes.STRING, allowNull: true },
+  resetPasswordExpires: { type: DataTypes.DATE, allowNull: true },
 }, {
   hooks: {
     beforeCreate: async (user) => {
       if (user.password) user.password = await bcrypt.hash(user.password, 12);
     },
     beforeUpdate: async (user) => {
-      if (user.changed('password')) user.password = await bcrypt.hash(user.password, 12);
+      if (user.changed('password') && user.password && !user.password.startsWith('$2')) {
+        user.password = await bcrypt.hash(user.password, 12);
+      }
     },
   },
 });
-
-User.prototype.comparePassword = async function (password) {
-  return bcrypt.compare(password, this.password);
-};
-
-User.prototype.toJSON = function () {
-  const values = { ...this.get() };
-  delete values.password;
-  return values;
-};
 
 module.exports = User;
