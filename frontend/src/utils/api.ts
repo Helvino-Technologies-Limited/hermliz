@@ -14,13 +14,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRedirecting = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login if:
+    // 1. It's a 401 error
+    // 2. It's NOT the /auth/me endpoint (that's handled by AuthContext)
+    // 3. We're not already redirecting
+    if (
+      error.response?.status === 401 &&
+      !error.config?.url?.includes('/auth/me') &&
+      !error.config?.url?.includes('/auth/login') &&
+      !isRedirecting
+    ) {
+      isRedirecting = true;
       localStorage.removeItem('hermliz_token');
       sessionStorage.removeItem('hermliz_token');
       window.location.href = '/login';
+      setTimeout(() => { isRedirecting = false; }, 3000);
     }
     return Promise.reject(error);
   }

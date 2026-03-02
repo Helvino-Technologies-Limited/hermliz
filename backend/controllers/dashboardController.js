@@ -1,92 +1,130 @@
-const moment = require('moment');
 const { Op } = require('sequelize');
-const { Policy, Client, Installment, Payment, Claim, Underwriter } = require('../models');
+const moment = require('moment');
+const { Policy, Client, Installment, Payment, Underwriter, Claim } = require('../models');
 
-exports.getDashboard = async (req, res) => {
-  const today = moment().format('YYYY-MM-DD');
-  const in7 = moment().add(7, 'days').format('YYYY-MM-DD');
-  const in14 = moment().add(14, 'days').format('YYYY-MM-DD');
-  const in30 = moment().add(30, 'days').format('YYYY-MM-DD');
-  const monthStart = moment().startOf('month').format('YYYY-MM-DD');
-  const monthEnd = moment().endOf('month').format('YYYY-MM-DD');
+exports.getStats = async (req, res) => {
+  try {
+    const today = moment().format('YYYY-MM-DD');
+    const in7 = moment().add(7, 'days').format('YYYY-MM-DD');
+    const in30 = moment().add(30, 'days').format('YYYY-MM-DD');
 
-  const [
-    totalClients, totalPolicies, activePolicies,
-    expiring7, expiring14, expiring30,
-    overdueInstallments, dueTodayInstallments,
-    openClaims, monthPayments,
-  ] = await Promise.all([
-    Client.count({ where: { isActive: true } }),
-    Policy.count(),
-    Policy.count({ where: { status: 'active' } }),
-    Policy.count({ where: { endDate: { [Op.between]: [today, in7] }, status: 'active' } }),
-    Policy.count({ where: { endDate: { [Op.between]: [today, in14] }, status: 'active' } }),
-    Policy.count({ where: { endDate: { [Op.between]: [today, in30] }, status: 'active' } }),
-    Installment.count({ where: { dueDate: { [Op.lt]: today }, status: { [Op.in]: ['pending', 'partial'] } } }),
-    Installment.count({ where: { dueDate: today, status: { [Op.in]: ['pending', 'partial'] } } }),
-    Claim.count({ where: { status: { [Op.in]: ['reported', 'under_review'] } } }),
-    Payment.findAll({ where: { paymentDate: { [Op.between]: [monthStart, monthEnd] } } }),
-  ]);
+    const [
+      totalClients,
+      activePolicies,
+      expiringIn7,
+      expiringIn30,
+      overdueInstallments,
+      dueTodayInstallments,
+      totalOutstandingResult,
+      totalCommissionResult,
+      totalPremiumResult,
+    ] = await Promise.all([
+      Client.count({ where: { isActive: true } }),
+      Policy.count({ where: { status: 'active' } }),
+      Policy.count({ where: { status: 'active', endDate: { [Op.between]: [today, in7] } } }),
+      Policy.count({ where: { status: 'active', endDate: { [Op.between]: [today, in30] } } }),
+      Installment.count({ where: { status: 'overdue' } }),
+      Installment.count({ where: { status: { [Op.in]: ['pending', 'partial'] }, dueDate: today } }),
+      Installment.sum('amountDue', { where: { status: { [Op.in]: ['pending', 'partial', 'overdue'] } } }),
+      Policy.sum('commissionAmount', { where: { status: { [Op.in]: ['active', 'renewed'] } } }),
+      Policy.sum('premiumAmount', { where: { status: 'active' } }),
+    ]);
 
-  const monthlyRevenue = monthPayments.reduce((s, p) => s + parseFloat(p.amount), 0);
-  const allPolicies = await Policy.findAll({ where: { status: 'active' } });
-  const totalOutstanding = allPolicies.reduce((s, p) => s + parseFloat(p.outstandingBalance), 0);
-  const totalCommission = allPolicies.reduce((s, p) => s + parseFloat(p.commissionAmount), 0);
+    // Monthly revenue — last 6 months
+    const monthlyRevenue = [];
+    for (let i = 5; i >= 0; i--) {
+      const start = moment().subtract(i, 'months').startOf('month').toDate();
+      const end = moment().subtract(i, 'months').endOf('month').toDate();
+      const revenue = await Payment.sum('amount', {
+        where: { paymentDate: { [Op.between]: [start, end] } },
+      });
+      monthlyRevenue.push({
+        month: moment().subtract(i, 'months').format('MMM'),
+        revenue: parseFloat(revenue || 0),
+      });
+    }
 
-  const recentPayments = await Payment.findAll({
-    limit: 5,
-    order: [['createdAt', 'DESC']],
-    include: [{ model: Policy, as: 'policy', include: [{ model: Client, as: 'client' }] }],
-  });
+    // Underwriter breakdown
+    const underwriters = await Underwriter.findAll({ where: { isActive: true } });
+    const underwriterBreakdown = await Promise.all(
+      underwriters.map(async (uw) => {
+        const count = await Policy.count({ where: { underwriterId: uw.id, status: 'active' } });
+        const premium = await Policy.sum('premiumAmount', { where: { underwriterId: uw.id, status: 'active' } });
+        return {
+          name: uw.shortName,
+          policies: count,
+          premium: parseFloat(premium || 0),
+        };
+      })
+    );
 
-  const expiringPolicies = await Policy.findAll({
-    where: { endDate: { [Op.between]: [today, in30] }, status: 'active' },
-    include: [{ model: Client, as: 'client' }, { model: Underwriter, as: 'underwriter' }],
-    order: [['endDate', 'ASC']],
-    limit: 10,
-  });
-
-  const overdueList = await Installment.findAll({
-    where: { dueDate: { [Op.lt]: today }, status: { [Op.in]: ['pending', 'partial'] } },
-    include: [{ model: Policy, as: 'policy', include: [{ model: Client, as: 'client' }] }],
-    order: [['dueDate', 'ASC']],
-    limit: 10,
-  });
-
-  res.json({
-    success: true,
-    data: {
-      stats: {
-        totalClients, totalPolicies, activePolicies,
-        expiring7, expiring14, expiring30,
-        overdueInstallments, dueTodayInstallments,
-        openClaims, monthlyRevenue, totalOutstanding, totalCommission,
+    res.json({
+      success: true,
+      data: {
+        totalClients: totalClients || 0,
+        activePolicies: activePolicies || 0,
+        expiringIn7: expiringIn7 || 0,
+        expiringIn30: expiringIn30 || 0,
+        overdueInstallments: overdueInstallments || 0,
+        dueToday: dueTodayInstallments || 0,
+        totalOutstanding: parseFloat(totalOutstandingResult || 0),
+        totalCommission: parseFloat(totalCommissionResult || 0),
+        totalPremium: parseFloat(totalPremiumResult || 0),
+        monthlyRevenue,
+        underwriterBreakdown,
       },
-      recentPayments,
-      expiringPolicies,
-      overdueInstallments: overdueList,
-    },
-  });
+    });
+  } catch (err) {
+    console.error('getStats error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.getRevenueChart = async (req, res) => {
-  const months = [];
-  for (let i = 5; i >= 0; i--) {
-    const start = moment().subtract(i, 'months').startOf('month').format('YYYY-MM-DD');
-    const end = moment().subtract(i, 'months').endOf('month').format('YYYY-MM-DD');
-    const payments = await Payment.findAll({ where: { paymentDate: { [Op.between]: [start, end] } } });
-    const total = payments.reduce((s, p) => s + parseFloat(p.amount), 0);
-    months.push({ month: moment().subtract(i, 'months').format('MMM YYYY'), revenue: total });
+  try {
+    const months = parseInt(req.query.months || '6');
+    const data = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const start = moment().subtract(i, 'months').startOf('month').toDate();
+      const end = moment().subtract(i, 'months').endOf('month').toDate();
+      const revenue = await Payment.sum('amount', {
+        where: { paymentDate: { [Op.between]: [start, end] } },
+      });
+      const commission = await Policy.sum('commissionAmount', {
+        where: { createdAt: { [Op.between]: [start, end] } },
+      });
+      data.push({
+        month: moment().subtract(i, 'months').format('MMM YY'),
+        revenue: parseFloat(revenue || 0),
+        commission: parseFloat(commission || 0),
+      });
+    }
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
-  res.json({ success: true, data: months });
 };
 
 exports.getUnderwriterBreakdown = async (req, res) => {
-  const underwriters = await Underwriter.findAll({ where: { isActive: true } });
-  const breakdown = await Promise.all(underwriters.map(async (uw) => {
-    const policies = await Policy.findAll({ where: { underwriterId: uw.id, status: 'active' } });
-    const totalPremium = policies.reduce((s, p) => s + parseFloat(p.premiumAmount), 0);
-    return { underwriter: uw.name, policies: policies.length, totalPremium };
-  }));
-  res.json({ success: true, data: breakdown.filter(b => b.policies > 0) });
+  try {
+    const underwriters = await Underwriter.findAll({ where: { isActive: true } });
+    const breakdown = await Promise.all(
+      underwriters.map(async (uw) => {
+        const activePolicies = await Policy.count({ where: { underwriterId: uw.id, status: 'active' } });
+        const totalPremium = await Policy.sum('premiumAmount', { where: { underwriterId: uw.id } });
+        const totalCommission = await Policy.sum('commissionAmount', { where: { underwriterId: uw.id } });
+        return {
+          id: uw.id,
+          name: uw.name,
+          shortName: uw.shortName,
+          activePolicies,
+          totalPremium: parseFloat(totalPremium || 0),
+          totalCommission: parseFloat(totalCommission || 0),
+        };
+      })
+    );
+    res.json({ success: true, data: breakdown });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
