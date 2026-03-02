@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -14,8 +13,9 @@ import Claims from './pages/Claims';
 import Reports from './pages/Reports';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
+import type { ReactNode } from 'react';
 
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -26,7 +26,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
   return user ? <>{children}</> : <Navigate to="/login" replace />;
-};
+}
 
 function AppRoutes() {
   return (
@@ -53,7 +53,13 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <AppRoutes />
-        <Toaster position="top-right" toastOptions={{ duration: 3000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif', fontSize: '14px' } }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif', fontSize: '14px' }
+          }}
+        />
       </BrowserRouter>
     </AuthProvider>
   );

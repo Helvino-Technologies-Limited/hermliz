@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Building2, Edit } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Modal from '../components/UI/Modal';
@@ -8,30 +8,53 @@ import api from '../utils/api';
 import { formatCurrency } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-const UWForm = ({ initial, onSave, onClose }) => {
-  const [form, setForm] = useState(initial || {
-    name: '', shortName: '', contactPerson: '', contactPhone: '', contactEmail: '',
-    address: '', website: '', defaultCommissionRate: '12',
-    motorCommission: '', medicalCommission: '', lifeCommission: '', notes: '',
-  });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+interface FieldProps {
+  label: string;
+  k: string;
+  type?: string;
+  required?: boolean;
+}
 
-  const handleSubmit = async (e) => {
+interface UWFormProps {
+  initial?: any;
+  onSave: () => void;
+  onClose: () => void;
+}
+
+const UWForm = ({ initial, onSave, onClose }: UWFormProps) => {
+  const [form, setForm] = useState(initial || {
+    name: '', shortName: '', contactPerson: '', contactPhone: '',
+    contactEmail: '', address: '', website: '',
+    defaultCommissionRate: '12', motorCommission: '',
+    medicalCommission: '', lifeCommission: '', notes: '',
+  });
+
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const Field = ({ label, k, type = 'text', required }: FieldProps) => (
+    <div>
+      <label className="label">{label}{required && <span className="text-red-500">*</span>}</label>
+      <input
+        type={type}
+        className="input"
+        value={form[k] || ''}
+        onChange={e => set(k, e.target.value)}
+        required={required}
+      />
+    </div>
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (initial?.id) await api.put(`/underwriters/${initial.id}`, form);
       else await api.post('/underwriters', form);
       toast.success(initial ? 'Underwriter updated!' : 'Underwriter added!');
       onSave();
-    } catch (err) { toast.error(err.response?.data?.message || 'Error'); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Error saving');
+    }
   };
-
-  const Field = ({ label, k, type = 'text', required }) => (
-    <div>
-      <label className="label">{label}{required && <span className="text-red-500">*</span>}</label>
-      <input type={type} className="input" value={form[k] || ''} onChange={e => set(k, e.target.value)} required={required} />
-    </div>
-  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,40 +83,52 @@ const UWForm = ({ initial, onSave, onClose }) => {
 };
 
 export default function Underwriters() {
-  const [underwriters, setUnderwriters] = useState([]);
+  const [underwriters, setUnderwriters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [stats, setStats] = useState({});
+  const [editing, setEditing] = useState<any>(null);
+  const [stats, setStats] = useState<Record<string, any>>({});
 
-  const fetch = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/underwriters');
       setUnderwriters(data.data);
-      const statsMap = {};
-      for (const uw of data.data) {
-        try {
-          const s = await api.get(`/underwriters/${uw.id}/stats`);
-          statsMap[uw.id] = s.data.data;
-        } catch {}
-      }
+      const statsMap: Record<string, any> = {};
+      await Promise.all(
+        data.data.map(async (uw: any) => {
+          try {
+            const s = await api.get(`/underwriters/${uw.id}/stats`);
+            statsMap[uw.id] = s.data.data;
+          } catch {}
+        })
+      );
       setStats(statsMap);
-    } catch { toast.error('Failed to load'); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error('Failed to load underwriters');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
   return (
     <Layout title="Underwriters">
       <div className="page-header">
         <h2 className="page-title">Underwriter Management</h2>
-        <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary"><Plus size={16} /> Add Underwriter</button>
+        <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary">
+          <Plus size={16} /> Add Underwriter
+        </button>
       </div>
 
       {loading ? <LoadingSpinner /> : underwriters.length === 0 ? (
-        <EmptyState icon={Building2} title="No underwriters" description="Add your partner underwriters." action={<button onClick={() => setShowForm(true)} className="btn-primary">Add Underwriter</button>} />
+        <EmptyState
+          icon={Building2}
+          title="No underwriters"
+          description="Add your partner underwriters."
+          action={<button onClick={() => setShowForm(true)} className="btn-primary">Add Underwriter</button>}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {underwriters.map(uw => {
@@ -110,8 +145,14 @@ export default function Underwriters() {
                       <div className="text-xs text-gray-500">{uw.contactPerson}</div>
                     </div>
                   </div>
-                  <button onClick={() => { setEditing(uw); setShowForm(true); }} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"><Edit size={15} /></button>
+                  <button
+                    onClick={() => { setEditing(uw); setShowForm(true); }}
+                    className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
+                  >
+                    <Edit size={15} />
+                  </button>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-gray-50 rounded-lg p-2">
                     <div className="text-gray-500 text-xs">Active Policies</div>
@@ -126,8 +167,10 @@ export default function Underwriters() {
                     <div className="font-bold text-blue-700">{formatCurrency(s.totalCommission || 0)}</div>
                   </div>
                 </div>
+
                 <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
-                  Default Commission: <strong>{uw.defaultCommissionRate}%</strong> · {uw.contactPhone}
+                  Default Commission: <strong>{uw.defaultCommissionRate}%</strong>
+                  {uw.contactPhone && <span> · {uw.contactPhone}</span>}
                 </div>
               </div>
             );
@@ -136,7 +179,11 @@ export default function Underwriters() {
       )}
 
       <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit Underwriter' : 'Add Underwriter'} size="lg">
-        <UWForm initial={editing} onSave={() => { setShowForm(false); fetch(); }} onClose={() => setShowForm(false)} />
+        <UWForm
+          initial={editing}
+          onSave={() => { setShowForm(false); fetchAll(); }}
+          onClose={() => setShowForm(false)}
+        />
       </Modal>
     </Layout>
   );
