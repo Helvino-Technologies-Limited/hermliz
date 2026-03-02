@@ -1,14 +1,20 @@
 const { Sequelize } = require('sequelize');
-const path = require('path');
 require('dotenv').config();
 
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.resolve(process.env.DB_STORAGE || './database/hermliz.sqlite'),
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  define: {
-    timestamps: true,
-    underscored: false,
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
   },
 });
 
