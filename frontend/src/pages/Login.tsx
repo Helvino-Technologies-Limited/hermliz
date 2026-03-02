@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -19,66 +19,133 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Login failed.');
+      toast.error(err.response?.data?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
   };
 
+  const features = ['No Forgotten Debts', 'No Missed Renewals', 'Full Client Visibility', 'Automated Alerts'];
+
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white flex-col justify-between p-12">
-        <div>
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center font-bold text-xl">HIA</div>
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--surface-2)' }}>
+
+      {/* Left panel — desktop only */}
+      <div className="hidden md:flex w-[45%] flex-col justify-between p-10 lg:p-14 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1a56db 100%)' }}>
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'radial-gradient(circle at 30% 80%, #60a5fa 0%, transparent 50%), radial-gradient(circle at 80% 20%, #818cf8 0%, transparent 50%)' }} />
+
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm text-white"
+              style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+              HIA
+            </div>
             <div>
-              <div className="font-bold text-xl">Hermliz Insurance Agency</div>
-              <div className="text-blue-300 text-sm">A Credible, Reliable Insurance Partner</div>
+              <div className="font-bold text-white text-base">Hermliz Insurance Agency</div>
+              <div className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>A Credible, Reliable Insurance Partner</div>
             </div>
           </div>
-          <h1 className="text-4xl font-bold leading-tight mb-4">Insurance Brokerage<br />Management System</h1>
-          <p className="text-blue-200 text-lg">Complete digital solution for managing policies, clients, renewals, and revenue.</p>
+
+          <h1 className="font-bold text-white leading-tight mb-4"
+            style={{ fontSize: 'clamp(28px, 3vw, 42px)' }}>
+            Insurance Brokerage<br />Management System
+          </h1>
+          <p className="text-base mb-10" style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+            Complete digital solution for managing policies, clients, renewals, and revenue — all in one place.
+          </p>
+
+          <div className="space-y-3">
+            {features.map(f => (
+              <div key={f} className="flex items-center gap-3">
+                <CheckCircle size={16} style={{ color: '#34d399', flexShrink: 0 }} />
+                <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>{f}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          {['No Forgotten Debts','No Missed Renewals','Full Client Visibility','Automated Alerts'].map(f => (
-            <div key={f} className="bg-white/10 rounded-xl p-4 text-sm font-medium">✓ {f}</div>
-          ))}
-        </div>
-        <p className="text-blue-300 text-sm">Developed by Helvino Technologies Limited · helvino.org</p>
+
+        <p className="relative text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          Developed by Helvino Technologies Limited · helvino.org
+        </p>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center"><Shield size={20} className="text-white" /></div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
-                <p className="text-gray-500 text-sm">Access your dashboard</p>
-              </div>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="label">Email Address</label>
-                <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required />
-              </div>
-              <div>
-                <label className="label">Password</label>
-                <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} className="input pr-10" value={password} onChange={e => setPassword(e.target.value)} required />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">
-                {loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</span> : 'Sign In'}
-              </button>
-            </form>
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl text-sm text-blue-700">
-              <strong>Demo:</strong> admin@hermliz.com / Admin@1234
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-5 md:p-10">
+        <div className="w-full max-w-sm">
+
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-8 md:hidden">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
+              style={{ background: 'var(--primary)' }}>HIA</div>
+            <div>
+              <div className="font-bold text-sm">Hermliz Insurance Agency</div>
+              <div className="text-xs" style={{ color: 'var(--text-3)' }}>IBMS v1.0</div>
             </div>
           </div>
+
+          <div className="mb-8">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: 'var(--primary-light)' }}>
+                <Shield size={18} style={{ color: 'var(--primary)' }} />
+              </div>
+              <h2 className="font-bold text-2xl" style={{ color: 'var(--text-1)' }}>Sign In</h2>
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Enter your credentials to access the dashboard</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="label">Email Address</label>
+              <input
+                type="email"
+                className="input"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                style={{ height: 46 }}
+              />
+            </div>
+            <div>
+              <label className="label">Password</label>
+              <div className="relative">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  className="input pr-12"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  style={{ height: 46 }}
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
+                  style={{ color: 'var(--text-3)' }}>
+                  {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="btn-primary w-full"
+              style={{ height: 46, fontSize: 15, marginTop: 8 }}>
+              {loading
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing in...</>
+                : 'Sign In'
+              }
+            </button>
+          </form>
+
+          <div className="mt-5 p-4 rounded-xl" style={{ background: 'var(--primary-light)', border: '1px solid #d6e2ff' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--primary)' }}>Demo Credentials</p>
+            <p className="text-xs" style={{ color: '#1342b0' }}>admin@hermliz.com · Admin@1234</p>
+          </div>
+
+          <p className="text-center text-xs mt-6" style={{ color: 'var(--text-3)' }}>
+            Powered by Helvino Technologies Limited
+          </p>
         </div>
       </div>
     </div>

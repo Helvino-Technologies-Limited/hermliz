@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, CheckCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, Check, CheckCheck } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
 import EmptyState from '../components/UI/EmptyState';
@@ -7,76 +7,94 @@ import api from '../utils/api';
 import { formatDate } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-const typeColors = {
-  installment_due: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  installment_overdue: 'bg-red-100 text-red-700 border-red-200',
-  renewal_reminder: 'bg-blue-100 text-blue-700 border-blue-200',
-  renewal_overdue: 'bg-orange-100 text-orange-700 border-orange-200',
-  payment_received: 'bg-green-100 text-green-700 border-green-200',
-  policy_created: 'bg-purple-100 text-purple-700 border-purple-200',
+const typeColor: Record<string, string> = {
+  renewal_reminder: '#f59e0b',
+  installment_due: '#3b82f6',
+  overdue: '#ef4444',
+  policy_created: '#10b981',
+  payment_received: '#10b981',
+  default: '#6366f1',
 };
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetch = async () => {
-    setLoading(true);
+  const fetchAll = async () => {
     try {
-      const { data } = await api.get('/notifications', { params: { limit: 50 } });
+      const { data } = await api.get('/notifications');
       setNotifications(data.data);
-    } catch { toast.error('Failed to load'); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const markRead = async (id) => {
-    await api.put(`/notifications/${id}/read`);
-    setNotifications(n => n.map(x => x.id === id ? { ...x, isRead: true } : x));
+  const markRead = async (id: string) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch {}
   };
 
-  const markAll = async () => {
-    await api.put('/notifications/mark-all-read');
-    setNotifications(n => n.map(x => ({ ...x, isRead: true })));
-    toast.success('All notifications marked as read.');
+  const markAllRead = async () => {
+    try {
+      await api.put('/notifications/mark-all-read');
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      toast.success('All marked as read');
+    } catch {}
   };
 
-  const unread = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <Layout title="Notifications">
       <div className="page-header">
         <div>
           <h2 className="page-title">Notifications</h2>
-          {unread > 0 && <p className="text-sm text-gray-500 mt-1">{unread} unread</p>}
+          {unreadCount > 0 && (
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{unreadCount} unread</p>
+          )}
         </div>
-        {unread > 0 && <button onClick={markAll} className="btn-secondary"><CheckCheck size={16} /> Mark All Read</button>}
+        {unreadCount > 0 && (
+          <button onClick={markAllRead} className="btn-secondary text-xs gap-1.5">
+            <CheckCheck size={14} /> Mark all read
+          </button>
+        )}
       </div>
 
-      {loading ? <LoadingSpinner /> : notifications.length === 0 ? (
-        <EmptyState icon={Bell} title="No notifications" description="You're all caught up!" />
-      ) : (
-        <div className="space-y-2">
-          {notifications.map(n => (
-            <div
-              key={n.id}
-              onClick={() => !n.isRead && markRead(n.id)}
-              className={`flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all ${n.isRead ? 'bg-white border-gray-100 opacity-70' : `${typeColors[n.type] || 'bg-blue-50 border-blue-200'} shadow-sm`}`}
-            >
-              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.isRead ? 'bg-gray-300' : 'bg-blue-600'}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={`font-semibold text-sm ${n.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{n.title}</p>
-                  <span className="text-xs text-gray-400 flex-shrink-0">{formatDate(n.createdAt)}</span>
+      <div className="card p-0 overflow-hidden">
+        {loading ? <LoadingSpinner /> : notifications.length === 0 ? (
+          <EmptyState icon={Bell} title="No notifications" description="You're all caught up!" />
+        ) : (
+          <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+            {notifications.map(n => (
+              <div key={n.id}
+                className="flex items-start gap-3 p-4 transition-colors cursor-pointer"
+                style={{ background: n.isRead ? 'var(--surface)' : 'var(--primary-light)' }}
+                onClick={() => !n.isRead && markRead(n.id)}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ background: `${typeColor[n.type] || typeColor.default}20` }}>
+                  <Bell size={16} style={{ color: typeColor[n.type] || typeColor.default }} />
                 </div>
-                <p className="text-sm text-gray-600 mt-0.5">{n.message}</p>
-                <span className={`badge text-xs mt-1 ${typeColors[n.type] || 'bg-gray-100 text-gray-600'}`}>{n.type?.replace(/_/g, ' ')}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sm" style={{ color: 'var(--text-1)' }}>{n.title}</p>
+                    {!n.isRead && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: 'var(--primary)' }} />
+                    )}
+                  </div>
+                  <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-2)' }}>{n.message}</p>
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-3)' }}>{formatDate(n.createdAt)}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }

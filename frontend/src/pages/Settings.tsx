@@ -1,99 +1,155 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, User, Key } from 'lucide-react';
+import { useState, memo } from 'react';
+import { User, Lock, Info, LogOut } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function Settings() {
-  const { user, fetchMe } = useAuth();
-  const [profile, setProfile] = useState({ name: user?.name || '', phone: user?.phone || '', email: user?.email || '' });
-  const [password, setPassword] = useState({ currentPassword: '', newPassword: '', confirm: '' });
-  const [loading, setLoading] = useState(false);
+const ProfileForm = memo(({ user }: { user: any }) => {
+  const [name, setName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [saving, setSaving] = useState(false);
 
-  const saveProfile = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     try {
-      await api.put('/auth/me', profile);
-      await fetchMe();
+      await api.put('/auth/profile', { name, phone });
       toast.success('Profile updated!');
-    } catch (err) { toast.error(err.response?.data?.message || 'Error'); }
-    finally { setLoading(false); }
-  };
-
-  const changePassword = async (e) => {
-    e.preventDefault();
-    if (password.newPassword !== password.confirm) { toast.error('Passwords do not match'); return; }
-    setLoading(true);
-    try {
-      await api.put('/auth/me/password', { currentPassword: password.currentPassword, newPassword: password.newPassword });
-      setPassword({ currentPassword: '', newPassword: '', confirm: '' });
-      toast.success('Password changed!');
-    } catch (err) { toast.error(err.response?.data?.message || 'Error'); }
-    finally { setLoading(false); }
+    } catch { toast.error('Failed to update profile'); }
+    finally { setSaving(false); }
   };
 
   return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="label">Full Name</label>
+        <input className="input" value={name} onChange={e => setName(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Email</label>
+        <input className="input" value={user?.email || ''} disabled style={{ opacity: 0.6 }} />
+      </div>
+      <div>
+        <label className="label">Phone</label>
+        <input className="input" value={phone} onChange={e => setPhone(e.target.value)} />
+      </div>
+      <button type="submit" disabled={saving} className="btn-primary">
+        {saving ? 'Saving...' : 'Save Changes'}
+      </button>
+    </form>
+  );
+});
+ProfileForm.displayName = 'ProfileForm';
+
+const PasswordForm = memo(() => {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
+    setSaving(true);
+    try {
+      await api.put('/auth/change-password', { currentPassword, newPassword });
+      toast.success('Password changed!');
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="label">Current Password</label>
+        <input type="password" className="input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
+      </div>
+      <div>
+        <label className="label">New Password</label>
+        <input type="password" className="input" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+      </div>
+      <div>
+        <label className="label">Confirm New Password</label>
+        <input type="password" className="input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+      </div>
+      <button type="submit" disabled={saving} className="btn-primary">
+        {saving ? 'Changing...' : 'Change Password'}
+      </button>
+    </form>
+  );
+});
+PasswordForm.displayName = 'PasswordForm';
+
+export default function Settings() {
+  const { user, logout } = useAuth();
+  const [tab, setTab] = useState<'profile' | 'password' | 'about'>('profile');
+
+  const tabs = [
+    { id: 'profile' as const, label: 'Profile', icon: User },
+    { id: 'password' as const, label: 'Security', icon: Lock },
+    { id: 'about' as const, label: 'About', icon: Info },
+  ];
+
+  return (
     <Layout title="Settings">
-      <h2 className="page-title mb-6">Settings</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <h2 className="page-title mb-5">Settings</h2>
 
-        {/* Profile */}
-        <div className="card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><User size={18} className="text-blue-600" /></div>
-            <h3 className="font-semibold text-gray-800">Profile Settings</h3>
-          </div>
-          <form onSubmit={saveProfile} className="space-y-4">
-            <div><label className="label">Full Name</label><input className="input" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} /></div>
-            <div><label className="label">Email</label><input type="email" className="input" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} /></div>
-            <div><label className="label">Phone</label><input className="input" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} /></div>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-              <span className="font-medium">Role:</span> <span className="capitalize">{user?.role?.replace(/_/g, ' ')}</span>
-            </div>
-            <button type="submit" disabled={loading} className="btn-primary">Save Profile</button>
-          </form>
-        </div>
+      <div className="flex gap-1 p-1 rounded-xl mb-5 w-full md:w-auto md:inline-flex"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 md:flex-initial justify-center"
+            style={{
+              background: tab === t.id ? 'var(--surface)' : 'transparent',
+              color: tab === t.id ? 'var(--text-1)' : 'var(--text-3)',
+              boxShadow: tab === t.id ? 'var(--shadow-sm)' : 'none',
+            }}>
+            <t.icon size={15} />
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Change Password */}
-        <div className="card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center"><Key size={18} className="text-purple-600" /></div>
-            <h3 className="font-semibold text-gray-800">Change Password</h3>
-          </div>
-          <form onSubmit={changePassword} className="space-y-4">
-            <div><label className="label">Current Password</label><input type="password" className="input" value={password.currentPassword} onChange={e => setPassword(p => ({ ...p, currentPassword: e.target.value }))} required /></div>
-            <div><label className="label">New Password</label><input type="password" className="input" value={password.newPassword} onChange={e => setPassword(p => ({ ...p, newPassword: e.target.value }))} required /></div>
-            <div><label className="label">Confirm New Password</label><input type="password" className="input" value={password.confirm} onChange={e => setPassword(p => ({ ...p, confirm: e.target.value }))} required /></div>
-            <button type="submit" disabled={loading} className="btn-primary">Change Password</button>
-          </form>
-        </div>
-
-        {/* System Info */}
-        <div className="card lg:col-span-2">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center"><SettingsIcon size={18} className="text-green-600" /></div>
-            <h3 className="font-semibold text-gray-800">System Information</h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            {[
-              { label: 'System', value: 'Hermliz IBMS' },
-              { label: 'Version', value: '1.0.0' },
-              { label: 'Agency', value: 'Hermliz Insurance Agency' },
-              { label: 'Location', value: 'Bondo, Siaya County' },
-              { label: 'Developer', value: 'Helvino Technologies Ltd' },
-              { label: 'Website', value: 'helvino.org' },
-              { label: 'Support', value: 'helvinotech@gmail.com' },
-              { label: 'Phone', value: '0752555679' },
-            ].map(i => (
-              <div key={i.label} className="bg-gray-50 rounded-lg p-3">
-                <p className="text-gray-500 text-xs">{i.label}</p>
-                <p className="font-semibold text-gray-800 text-xs mt-0.5">{i.value}</p>
+      <div className="card max-w-lg">
+        {tab === 'profile' && <ProfileForm user={user} />}
+        {tab === 'password' && <PasswordForm />}
+        {tab === 'about' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl" style={{ background: 'var(--surface-2)' }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white"
+                  style={{ background: 'var(--primary)' }}>HIA</div>
+                <div>
+                  <p className="font-bold">Hermliz Insurance Agency</p>
+                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>IBMS v1.0.0</p>
+                </div>
               </div>
-            ))}
+              {[
+                ['System', 'Insurance Brokerage Management System'],
+                ['Developer', 'Helvino Technologies Limited'],
+                ['Website', 'helvino.org'],
+                ['Email', 'helvinotech@gmail.com'],
+                ['Client', 'Hermliz Insurance Agency'],
+                ['Location', 'Bondo, Siaya County, Kenya'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between py-2.5 text-sm" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-3)' }}>{k}</span>
+                  <span className="font-medium text-right max-w-[60%]" style={{ color: 'var(--text-1)' }}>{v}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Logout button on mobile */}
+      <div className="mt-6 md:hidden">
+        <button onClick={logout} className="btn-danger w-full">
+          <LogOut size={16} /> Logout
+        </button>
       </div>
     </Layout>
   );

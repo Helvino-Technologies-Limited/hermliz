@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const navItems = [
+export const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/clients', icon: Users, label: 'Clients' },
   { to: '/policies', icon: FileText, label: 'Policies' },
@@ -25,62 +25,69 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className={`${collapsed ? 'w-16' : 'w-64'} bg-gray-900 text-white flex flex-col transition-all duration-300 min-h-screen relative flex-shrink-0`}>
-      <div className={`flex items-center gap-3 p-4 border-b border-gray-700 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0">HIA</div>
+    <aside className={`${collapsed ? 'w-[68px]' : 'w-[240px]'} hidden md:flex flex-col transition-all duration-300 flex-shrink-0`}
+      style={{ background: 'var(--sidebar-bg)', minHeight: '100vh' }}>
+
+      {/* Logo */}
+      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/10 ${collapsed ? 'justify-center' : ''}`}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white text-xs flex-shrink-0"
+          style={{ background: 'var(--primary)' }}>HIA</div>
         {!collapsed && (
-          <div>
-            <div className="font-bold text-sm leading-tight">Hermliz Insurance</div>
-            <div className="text-xs text-gray-400">IBMS v1.0</div>
+          <div className="min-w-0">
+            <div className="font-bold text-white text-sm leading-tight truncate">Hermliz Insurance</div>
+            <div className="text-xs text-white/40 mt-0.5">IBMS v1.0</div>
           </div>
         )}
       </div>
 
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-6 bg-gray-700 rounded-full p-1 hover:bg-gray-600 transition-colors z-10"
-      >
+      {/* Collapse toggle */}
+      <button onClick={() => setCollapsed(!collapsed)}
+        className="absolute top-[22px] -right-3 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors"
+        style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}>
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
 
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium
-              ${isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
-              ${collapsed ? 'justify-center' : ''}`
-            }
+          <NavLink key={to} to={to} end={to === '/'}
             title={collapsed ? label : ''}
-          >
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-xl transition-all duration-150 font-medium text-sm
+              ${isActive
+                ? 'text-white'
+                : 'text-white/50 hover:text-white/90 hover:bg-white/5'
+              }
+              ${collapsed ? 'justify-center px-0 py-3' : 'px-3 py-2.5'}`
+            }
+            style={({ isActive }) => isActive ? { background: 'var(--sidebar-active)' } : {}}>
             <Icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span className="truncate">{label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      <div className={`border-t border-gray-700 p-3 ${collapsed ? 'flex justify-center' : ''}`}>
+      {/* User */}
+      <div className={`border-t border-white/10 p-3 ${collapsed ? 'flex justify-center' : ''}`}>
         {!collapsed ? (
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                style={{ background: 'var(--primary)' }}>
                 {user?.name?.[0]?.toUpperCase()}
               </div>
-              <div>
-                <div className="text-xs font-semibold text-white truncate max-w-[100px]">{user?.name}</div>
-                <div className="text-xs text-gray-400 capitalize">{user?.role?.replace(/_/g, ' ')}</div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-white truncate">{user?.name}</div>
+                <div className="text-xs text-white/40 capitalize truncate">{user?.role?.replace(/_/g, ' ')}</div>
               </div>
             </div>
-            <button onClick={logout} className="text-gray-400 hover:text-red-400 transition-colors" title="Logout">
-              <LogOut size={16} />
+            <button onClick={logout} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 transition-colors flex-shrink-0">
+              <LogOut size={15} />
             </button>
           </div>
         ) : (
-          <button onClick={logout} className="text-gray-400 hover:text-red-400 transition-colors" title="Logout">
-            <LogOut size={16} />
+          <button onClick={logout} className="p-1.5 text-white/40 hover:text-red-400 transition-colors">
+            <LogOut size={15} />
           </button>
         )}
       </div>
