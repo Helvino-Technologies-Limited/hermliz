@@ -8,7 +8,6 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// CORS - allow Vercel frontend
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -25,7 +24,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/policies', require('./routes/policies'));
@@ -35,6 +34,9 @@ app.use('/api/claims', require('./routes/claims'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
+
+// Temporary seed route - used to initialize database
+app.use('/api/setup', require('./routes/setup'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -50,7 +52,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hermliz IBMS API is running', version: '1.0.0' });
 });
 
-// Error handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
