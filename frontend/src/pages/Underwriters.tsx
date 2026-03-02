@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Plus, Building2, Edit } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Modal from '../components/UI/Modal';
@@ -8,36 +8,45 @@ import api from '../utils/api';
 import { formatCurrency } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-// ✅ DEFINED OUTSIDE
-const UWForm = ({ initial, onSave, onClose }: { initial?: any; onSave: () => void; onClose: () => void }) => {
-  const [form, setForm] = useState({
-    name: initial?.name || '',
-    shortName: initial?.shortName || '',
-    contactPerson: initial?.contactPerson || '',
-    contactPhone: initial?.contactPhone || '',
-    contactEmail: initial?.contactEmail || '',
-    address: initial?.address || '',
-    website: initial?.website || '',
-    defaultCommissionRate: initial?.defaultCommissionRate || '12',
-    motorCommission: initial?.motorCommission || '',
-    medicalCommission: initial?.medicalCommission || '',
-    lifeCommission: initial?.lifeCommission || '',
-    notes: initial?.notes || '',
-  });
-
-  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm(prev => ({ ...prev, [field]: e.target.value }));
-  };
+const UWForm = memo(({ initial, onSave, onClose }: {
+  initial?: any;
+  onSave: () => void;
+  onClose: () => void;
+}) => {
+  const [name, setName] = useState(initial?.name || '');
+  const [shortName, setShortName] = useState(initial?.shortName || '');
+  const [contactPerson, setContactPerson] = useState(initial?.contactPerson || '');
+  const [contactPhone, setContactPhone] = useState(initial?.contactPhone || '');
+  const [contactEmail, setContactEmail] = useState(initial?.contactEmail || '');
+  const [address, setAddress] = useState(initial?.address || '');
+  const [website, setWebsite] = useState(initial?.website || '');
+  const [defaultCommissionRate, setDefaultCommissionRate] = useState(initial?.defaultCommissionRate?.toString() || '12');
+  const [motorCommission, setMotorCommission] = useState(initial?.motorCommission?.toString() || '');
+  const [medicalCommission, setMedicalCommission] = useState(initial?.medicalCommission?.toString() || '');
+  const [lifeCommission, setLifeCommission] = useState(initial?.lifeCommission?.toString() || '');
+  const [notes, setNotes] = useState(initial?.notes || '');
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      if (initial?.id) await api.put(`/underwriters/${initial.id}`, form);
-      else await api.post('/underwriters', form);
+      const payload = {
+        name, shortName, contactPerson, contactPhone, contactEmail,
+        address, website, defaultCommissionRate,
+        motorCommission: motorCommission || null,
+        medicalCommission: medicalCommission || null,
+        lifeCommission: lifeCommission || null,
+        notes,
+      };
+      if (initial?.id) await api.put(`/underwriters/${initial.id}`, payload);
+      else await api.post('/underwriters', payload);
       toast.success(initial ? 'Underwriter updated!' : 'Underwriter added!');
       onSave();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Error saving');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -46,66 +55,70 @@ const UWForm = ({ initial, onSave, onClose }: { initial?: any; onSave: () => voi
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="label">Company Name <span className="text-red-500">*</span></label>
-          <input className="input" value={form.name} onChange={handleChange('name')} required />
+          <input className="input" value={name} onChange={e => setName(e.target.value)} required autoFocus />
         </div>
         <div>
           <label className="label">Short Name <span className="text-red-500">*</span></label>
-          <input className="input" value={form.shortName} onChange={handleChange('shortName')} required placeholder="e.g. APA" />
+          <input className="input" value={shortName} onChange={e => setShortName(e.target.value)} required placeholder="e.g. APA" />
         </div>
         <div>
           <label className="label">Contact Person</label>
-          <input className="input" value={form.contactPerson} onChange={handleChange('contactPerson')} />
+          <input className="input" value={contactPerson} onChange={e => setContactPerson(e.target.value)} />
         </div>
         <div>
           <label className="label">Phone</label>
-          <input className="input" value={form.contactPhone} onChange={handleChange('contactPhone')} />
+          <input className="input" value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
         </div>
         <div>
           <label className="label">Email</label>
-          <input type="email" className="input" value={form.contactEmail} onChange={handleChange('contactEmail')} />
+          <input type="email" className="input" value={contactEmail} onChange={e => setContactEmail(e.target.value)} />
         </div>
         <div>
           <label className="label">Website</label>
-          <input className="input" value={form.website} onChange={handleChange('website')} placeholder="https://..." />
+          <input className="input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
         </div>
         <div>
           <label className="label">Default Commission %</label>
-          <input type="number" className="input" value={form.defaultCommissionRate} onChange={handleChange('defaultCommissionRate')} />
+          <input type="number" className="input" value={defaultCommissionRate} onChange={e => setDefaultCommissionRate(e.target.value)} />
         </div>
         <div>
           <label className="label">Motor Commission %</label>
-          <input type="number" className="input" value={form.motorCommission} onChange={handleChange('motorCommission')} placeholder="Optional" />
+          <input type="number" className="input" value={motorCommission} onChange={e => setMotorCommission(e.target.value)} placeholder="Optional" />
         </div>
         <div>
           <label className="label">Medical Commission %</label>
-          <input type="number" className="input" value={form.medicalCommission} onChange={handleChange('medicalCommission')} placeholder="Optional" />
+          <input type="number" className="input" value={medicalCommission} onChange={e => setMedicalCommission(e.target.value)} placeholder="Optional" />
         </div>
         <div>
           <label className="label">Life Commission %</label>
-          <input type="number" className="input" value={form.lifeCommission} onChange={handleChange('lifeCommission')} placeholder="Optional" />
+          <input type="number" className="input" value={lifeCommission} onChange={e => setLifeCommission(e.target.value)} placeholder="Optional" />
         </div>
         <div className="col-span-2">
           <label className="label">Address</label>
-          <input className="input" value={form.address} onChange={handleChange('address')} />
+          <input className="input" value={address} onChange={e => setAddress(e.target.value)} />
         </div>
         <div className="col-span-2">
           <label className="label">Notes</label>
-          <textarea className="input" rows={2} value={form.notes} onChange={handleChange('notes')} />
+          <textarea className="input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
         </div>
       </div>
       <div className="flex gap-3 justify-end">
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-        <button type="submit" className="btn-primary">{initial ? 'Update' : 'Add Underwriter'}</button>
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? 'Saving...' : initial ? 'Update' : 'Add Underwriter'}
+        </button>
       </div>
     </form>
   );
-};
+});
+UWForm.displayName = 'UWForm';
 
 export default function Underwriters() {
   const [underwriters, setUnderwriters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [modalKey, setModalKey] = useState(0);
   const [stats, setStats] = useState<Record<string, any>>({});
 
   const fetchAll = async () => {
@@ -132,11 +145,23 @@ export default function Underwriters() {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const openAdd = () => {
+    setEditing(null);
+    setModalKey(k => k + 1);
+    setShowForm(true);
+  };
+
+  const openEdit = (uw: any) => {
+    setEditing(uw);
+    setModalKey(k => k + 1);
+    setShowForm(true);
+  };
+
   return (
     <Layout title="Underwriters">
       <div className="page-header">
         <h2 className="page-title">Underwriter Management</h2>
-        <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary">
+        <button onClick={openAdd} className="btn-primary">
           <Plus size={16} /> Add Underwriter
         </button>
       </div>
@@ -146,7 +171,7 @@ export default function Underwriters() {
           icon={Building2}
           title="No underwriters"
           description="Add your partner underwriters."
-          action={<button onClick={() => setShowForm(true)} className="btn-primary">Add Underwriter</button>}
+          action={<button onClick={openAdd} className="btn-primary">Add Underwriter</button>}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -164,7 +189,7 @@ export default function Underwriters() {
                       <div className="text-xs text-gray-500">{uw.contactPerson}</div>
                     </div>
                   </div>
-                  <button onClick={() => { setEditing(uw); setShowForm(true); }} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => openEdit(uw)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
                     <Edit size={15} />
                   </button>
                 </div>
@@ -192,8 +217,15 @@ export default function Underwriters() {
         </div>
       )}
 
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit Underwriter' : 'Add Underwriter'} size="lg">
+      <Modal
+        key={modalKey}
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title={editing ? 'Edit Underwriter' : 'Add Underwriter'}
+        size="lg"
+      >
         <UWForm
+          key={modalKey}
           initial={editing}
           onSave={() => { setShowForm(false); fetchAll(); }}
           onClose={() => setShowForm(false)}
