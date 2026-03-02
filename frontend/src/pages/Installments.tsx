@@ -9,29 +9,23 @@ import api from '../utils/api';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-interface PaymentFormProps {
-  installment: any;
-  onSave: () => void;
-  onClose: () => void;
-}
-
-const PaymentForm = ({ installment, onSave, onClose }: PaymentFormProps) => {
+// ✅ DEFINED OUTSIDE
+const PaymentForm = ({ installment, onSave, onClose }: { installment: any; onSave: () => void; onClose: () => void }) => {
   const balance = parseFloat(installment.amountDue) - parseFloat(installment.amountPaid);
-  const [form, setForm] = useState({
-    amount: balance.toString(),
-    paymentDate: new Date().toISOString().split('T')[0],
-    paymentMethod: 'mpesa',
-    transactionRef: '',
-    receiptNumber: '',
-    notes: '',
-  });
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const [amount, setAmount] = useState(balance.toString());
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentMethod, setPaymentMethod] = useState('mpesa');
+  const [transactionRef, setTransactionRef] = useState('');
+  const [receiptNumber, setReceiptNumber] = useState('');
+  const [notes, setNotes] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post(`/installments/${installment.id}/payment`, form);
+      await api.post(`/installments/${installment.id}/payment`, {
+        amount, paymentDate, paymentMethod, transactionRef, receiptNumber, notes,
+      });
       toast.success('Payment recorded successfully!');
       onSave();
     } catch (err: any) {
@@ -42,25 +36,28 @@ const PaymentForm = ({ installment, onSave, onClose }: PaymentFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-blue-50 rounded-lg p-4 text-sm space-y-1">
-        <div className="font-semibold text-blue-900">{installment.policy?.client?.fullName}</div>
+        <div className="font-semibold text-blue-900 text-base">{installment.policy?.client?.fullName}</div>
         <div className="text-blue-700">Policy: {installment.policy?.policyNumber}</div>
         <div className="text-blue-700">Installment #{installment.installmentNumber} · Due: {formatDate(installment.dueDate)}</div>
-        <div className="text-blue-700">Amount Due: {formatCurrency(installment.amountDue)} · Paid: {formatCurrency(installment.amountPaid)}</div>
-        <div className="font-bold text-blue-900 text-base">Outstanding: {formatCurrency(balance)}</div>
+        <div className="flex justify-between">
+          <span className="text-blue-700">Amount Due: <strong>{formatCurrency(installment.amountDue)}</strong></span>
+          <span className="text-blue-700">Paid: <strong>{formatCurrency(installment.amountPaid)}</strong></span>
+        </div>
+        <div className="text-red-700 font-bold">Outstanding: {formatCurrency(balance)}</div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="label">Amount (KES) <span className="text-red-500">*</span></label>
-          <input type="number" className="input" value={form.amount} onChange={e => set('amount', e.target.value)} required max={balance} />
+          <input type="number" className="input" value={amount} onChange={e => setAmount(e.target.value)} required />
         </div>
         <div>
           <label className="label">Payment Date <span className="text-red-500">*</span></label>
-          <input type="date" className="input" value={form.paymentDate} onChange={e => set('paymentDate', e.target.value)} required />
+          <input type="date" className="input" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} required />
         </div>
         <div>
           <label className="label">Payment Method</label>
-          <select className="input" value={form.paymentMethod} onChange={e => set('paymentMethod', e.target.value)}>
+          <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
             <option value="mpesa">M-Pesa</option>
             <option value="cash">Cash</option>
             <option value="bank_transfer">Bank Transfer</option>
@@ -70,19 +67,17 @@ const PaymentForm = ({ installment, onSave, onClose }: PaymentFormProps) => {
         </div>
         <div>
           <label className="label">Transaction Ref</label>
-          <input className="input" value={form.transactionRef} onChange={e => set('transactionRef', e.target.value)} placeholder="e.g. QCX12345" />
+          <input className="input" value={transactionRef} onChange={e => setTransactionRef(e.target.value)} placeholder="e.g. QCX12345" />
         </div>
         <div>
           <label className="label">Receipt Number</label>
-          <input className="input" value={form.receiptNumber} onChange={e => set('receiptNumber', e.target.value)} />
+          <input className="input" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} />
         </div>
       </div>
-
       <div>
         <label className="label">Notes</label>
-        <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} />
+        <textarea className="input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
-
       <div className="flex gap-3 justify-end">
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
         <button type="submit" className="btn-success"><DollarSign size={14} /> Record Payment</button>
@@ -112,7 +107,6 @@ export default function Installments() {
         api.get('/installments/due-today'),
         api.get('/installments/overdue'),
       ]);
-
       setInstallments(r.data.data);
       setMeta({ total: r.data.total, pages: r.data.pages });
       setStats({ dueToday: due.data.data.length, overdue: ov.data.data.length });
@@ -125,12 +119,9 @@ export default function Installments() {
 
   useEffect(() => { fetchAll(); }, [filter, page]);
 
-  const filters = [
-    { v: '', l: 'All' },
-    { v: 'pending', l: 'Pending' },
-    { v: 'partial', l: 'Partial' },
-    { v: 'paid', l: 'Paid' },
-    { v: 'overdue', l: 'Overdue' },
+  const filterBtns = [
+    { v: '', l: 'All' }, { v: 'pending', l: 'Pending' },
+    { v: 'partial', l: 'Partial' }, { v: 'paid', l: 'Paid' }, { v: 'overdue', l: 'Overdue' },
   ];
 
   return (
@@ -140,15 +131,15 @@ export default function Installments() {
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter('')}>
+        <div className="stat-card cursor-pointer hover:shadow-md" onClick={() => setFilter('')}>
           <p className="text-sm text-gray-500">Total Tracked</p>
           <p className="text-2xl font-bold text-gray-900">{meta.total}</p>
         </div>
-        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter('pending')}>
+        <div className="stat-card cursor-pointer hover:shadow-md" onClick={() => setFilter('pending')}>
           <p className="text-sm text-gray-500">Due Today</p>
           <p className="text-2xl font-bold text-yellow-600">{stats.dueToday}</p>
         </div>
-        <div className="stat-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilter('overdue')}>
+        <div className="stat-card cursor-pointer hover:shadow-md" onClick={() => setFilter('overdue')}>
           <p className="text-sm text-gray-500">Overdue</p>
           <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
         </div>
@@ -156,12 +147,9 @@ export default function Installments() {
 
       <div className="card mb-4">
         <div className="flex gap-2 flex-wrap">
-          {filters.map(f => (
-            <button
-              key={f.v}
-              onClick={() => { setFilter(f.v); setPage(1); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-            >
+          {filterBtns.map(f => (
+            <button key={f.v} onClick={() => { setFilter(f.v); setPage(1); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
               {f.l}
             </button>
           ))}
@@ -183,7 +171,7 @@ export default function Installments() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {installments.map(inst => {
-                    const balance = parseFloat(inst.amountDue) - parseFloat(inst.amountPaid);
+                    const bal = parseFloat(inst.amountDue) - parseFloat(inst.amountPaid);
                     return (
                       <tr key={inst.id}>
                         <td>{inst.installmentNumber}</td>
@@ -195,16 +183,11 @@ export default function Installments() {
                         </td>
                         <td className="font-medium">{formatCurrency(inst.amountDue)}</td>
                         <td className="text-green-600">{formatCurrency(inst.amountPaid)}</td>
-                        <td className={balance > 0 ? 'text-red-600 font-bold' : 'text-green-600'}>
-                          {formatCurrency(balance)}
-                        </td>
+                        <td className={bal > 0 ? 'text-red-600 font-bold' : 'text-green-600'}>{formatCurrency(bal)}</td>
                         <td><span className={`badge ${getStatusColor(inst.status)}`}>{inst.status}</span></td>
                         <td>
                           {inst.status !== 'paid' && (
-                            <button
-                              onClick={() => setPaymentModal(inst)}
-                              className="btn-success py-1 px-3 text-xs"
-                            >
+                            <button onClick={() => setPaymentModal(inst)} className="btn-success py-1 px-3 text-xs">
                               <DollarSign size={12} /> Pay
                             </button>
                           )}

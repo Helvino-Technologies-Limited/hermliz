@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Users } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Modal from '../components/UI/Modal';
@@ -19,21 +19,26 @@ interface Client {
   policies?: any[];
 }
 
-interface FieldProps {
-  label: string;
-  k: string;
-  type?: string;
-  required?: boolean;
-}
-
+// ✅ DEFINED OUTSIDE - prevents remount on parent re-render
 const ClientForm = ({ initial, onSave, onClose }: { initial?: any; onSave: () => void; onClose: () => void }) => {
-  const [form, setForm] = useState(initial || {
-    fullName: '', nationalId: '', phone: '', email: '', kraPin: '',
-    address: '', occupation: '', businessName: '',
-    nextOfKinName: '', nextOfKinPhone: '', nextOfKinRelationship: '', notes: '',
+  const [form, setForm] = useState({
+    fullName: initial?.fullName || '',
+    nationalId: initial?.nationalId || '',
+    phone: initial?.phone || '',
+    email: initial?.email || '',
+    kraPin: initial?.kraPin || '',
+    address: initial?.address || '',
+    occupation: initial?.occupation || '',
+    businessName: initial?.businessName || '',
+    nextOfKinName: initial?.nextOfKinName || '',
+    nextOfKinPhone: initial?.nextOfKinPhone || '',
+    nextOfKinRelationship: initial?.nextOfKinRelationship || '',
+    notes: initial?.notes || '',
   });
 
-  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
+  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,37 +52,57 @@ const ClientForm = ({ initial, onSave, onClose }: { initial?: any; onSave: () =>
     }
   };
 
-  const Field = ({ label, k, type = 'text', required }: FieldProps) => (
-    <div>
-      <label className="label">{label}{required && <span className="text-red-500">*</span>}</label>
-      <input
-        type={type}
-        className="input"
-        value={form[k] || ''}
-        onChange={e => set(k, e.target.value)}
-        required={required}
-      />
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Full Name" k="fullName" required />
-        <Field label="National ID" k="nationalId" />
-        <Field label="Phone" k="phone" required />
-        <Field label="Email" k="email" type="email" />
-        <Field label="KRA PIN" k="kraPin" />
-        <Field label="Occupation" k="occupation" />
-        <Field label="Business Name" k="businessName" />
-        <Field label="Address" k="address" />
-        <Field label="Next of Kin Name" k="nextOfKinName" />
-        <Field label="Next of Kin Phone" k="nextOfKinPhone" />
-        <Field label="Relationship" k="nextOfKinRelationship" />
+        <div>
+          <label className="label">Full Name <span className="text-red-500">*</span></label>
+          <input className="input" value={form.fullName} onChange={handleChange('fullName')} required />
+        </div>
+        <div>
+          <label className="label">National ID</label>
+          <input className="input" value={form.nationalId} onChange={handleChange('nationalId')} />
+        </div>
+        <div>
+          <label className="label">Phone <span className="text-red-500">*</span></label>
+          <input className="input" value={form.phone} onChange={handleChange('phone')} required />
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input type="email" className="input" value={form.email} onChange={handleChange('email')} />
+        </div>
+        <div>
+          <label className="label">KRA PIN</label>
+          <input className="input" value={form.kraPin} onChange={handleChange('kraPin')} />
+        </div>
+        <div>
+          <label className="label">Occupation</label>
+          <input className="input" value={form.occupation} onChange={handleChange('occupation')} />
+        </div>
+        <div>
+          <label className="label">Business Name</label>
+          <input className="input" value={form.businessName} onChange={handleChange('businessName')} />
+        </div>
+        <div>
+          <label className="label">Address</label>
+          <input className="input" value={form.address} onChange={handleChange('address')} />
+        </div>
+        <div>
+          <label className="label">Next of Kin Name</label>
+          <input className="input" value={form.nextOfKinName} onChange={handleChange('nextOfKinName')} />
+        </div>
+        <div>
+          <label className="label">Next of Kin Phone</label>
+          <input className="input" value={form.nextOfKinPhone} onChange={handleChange('nextOfKinPhone')} />
+        </div>
+        <div>
+          <label className="label">Relationship</label>
+          <input className="input" value={form.nextOfKinRelationship} onChange={handleChange('nextOfKinRelationship')} />
+        </div>
       </div>
       <div>
         <label className="label">Notes</label>
-        <textarea className="input" rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
+        <textarea className="input" rows={2} value={form.notes} onChange={handleChange('notes')} />
       </div>
       <div className="flex gap-3 justify-end pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
@@ -102,7 +127,7 @@ export default function Clients() {
     if (q) setSearch(q);
   }, []);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/clients', { params: { search, page, limit: 20 } });
@@ -113,9 +138,9 @@ export default function Clients() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, page]);
 
-  useEffect(() => { fetchClients(); }, [search, page]);
+  useEffect(() => { fetchClients(); }, [fetchClients]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Archive this client?')) return;

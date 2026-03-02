@@ -8,41 +8,26 @@ import api from '../utils/api';
 import { formatCurrency } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-interface FieldProps {
-  label: string;
-  k: string;
-  type?: string;
-  required?: boolean;
-}
-
-interface UWFormProps {
-  initial?: any;
-  onSave: () => void;
-  onClose: () => void;
-}
-
-const UWForm = ({ initial, onSave, onClose }: UWFormProps) => {
-  const [form, setForm] = useState(initial || {
-    name: '', shortName: '', contactPerson: '', contactPhone: '',
-    contactEmail: '', address: '', website: '',
-    defaultCommissionRate: '12', motorCommission: '',
-    medicalCommission: '', lifeCommission: '', notes: '',
+// ✅ DEFINED OUTSIDE
+const UWForm = ({ initial, onSave, onClose }: { initial?: any; onSave: () => void; onClose: () => void }) => {
+  const [form, setForm] = useState({
+    name: initial?.name || '',
+    shortName: initial?.shortName || '',
+    contactPerson: initial?.contactPerson || '',
+    contactPhone: initial?.contactPhone || '',
+    contactEmail: initial?.contactEmail || '',
+    address: initial?.address || '',
+    website: initial?.website || '',
+    defaultCommissionRate: initial?.defaultCommissionRate || '12',
+    motorCommission: initial?.motorCommission || '',
+    medicalCommission: initial?.medicalCommission || '',
+    lifeCommission: initial?.lifeCommission || '',
+    notes: initial?.notes || '',
   });
 
-  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
-
-  const Field = ({ label, k, type = 'text', required }: FieldProps) => (
-    <div>
-      <label className="label">{label}{required && <span className="text-red-500">*</span>}</label>
-      <input
-        type={type}
-        className="input"
-        value={form[k] || ''}
-        onChange={e => set(k, e.target.value)}
-        required={required}
-      />
-    </div>
-  );
+  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,19 +44,53 @@ const UWForm = ({ initial, onSave, onClose }: UWFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Company Name" k="name" required />
-        <Field label="Short Name" k="shortName" required />
-        <Field label="Contact Person" k="contactPerson" />
-        <Field label="Phone" k="contactPhone" />
-        <Field label="Email" k="contactEmail" type="email" />
-        <Field label="Website" k="website" />
-        <Field label="Default Commission %" k="defaultCommissionRate" type="number" />
-        <Field label="Motor Commission %" k="motorCommission" type="number" />
-        <Field label="Medical Commission %" k="medicalCommission" type="number" />
-        <Field label="Life Commission %" k="lifeCommission" type="number" />
+        <div>
+          <label className="label">Company Name <span className="text-red-500">*</span></label>
+          <input className="input" value={form.name} onChange={handleChange('name')} required />
+        </div>
+        <div>
+          <label className="label">Short Name <span className="text-red-500">*</span></label>
+          <input className="input" value={form.shortName} onChange={handleChange('shortName')} required placeholder="e.g. APA" />
+        </div>
+        <div>
+          <label className="label">Contact Person</label>
+          <input className="input" value={form.contactPerson} onChange={handleChange('contactPerson')} />
+        </div>
+        <div>
+          <label className="label">Phone</label>
+          <input className="input" value={form.contactPhone} onChange={handleChange('contactPhone')} />
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input type="email" className="input" value={form.contactEmail} onChange={handleChange('contactEmail')} />
+        </div>
+        <div>
+          <label className="label">Website</label>
+          <input className="input" value={form.website} onChange={handleChange('website')} placeholder="https://..." />
+        </div>
+        <div>
+          <label className="label">Default Commission %</label>
+          <input type="number" className="input" value={form.defaultCommissionRate} onChange={handleChange('defaultCommissionRate')} />
+        </div>
+        <div>
+          <label className="label">Motor Commission %</label>
+          <input type="number" className="input" value={form.motorCommission} onChange={handleChange('motorCommission')} placeholder="Optional" />
+        </div>
+        <div>
+          <label className="label">Medical Commission %</label>
+          <input type="number" className="input" value={form.medicalCommission} onChange={handleChange('medicalCommission')} placeholder="Optional" />
+        </div>
+        <div>
+          <label className="label">Life Commission %</label>
+          <input type="number" className="input" value={form.lifeCommission} onChange={handleChange('lifeCommission')} placeholder="Optional" />
+        </div>
         <div className="col-span-2">
           <label className="label">Address</label>
-          <input className="input" value={form.address || ''} onChange={e => set('address', e.target.value)} />
+          <input className="input" value={form.address} onChange={handleChange('address')} />
+        </div>
+        <div className="col-span-2">
+          <label className="label">Notes</label>
+          <textarea className="input" rows={2} value={form.notes} onChange={handleChange('notes')} />
         </div>
       </div>
       <div className="flex gap-3 justify-end">
@@ -145,14 +164,10 @@ export default function Underwriters() {
                       <div className="text-xs text-gray-500">{uw.contactPerson}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { setEditing(uw); setShowForm(true); }}
-                    className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
-                  >
+                  <button onClick={() => { setEditing(uw); setShowForm(true); }} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
                     <Edit size={15} />
                   </button>
                 </div>
-
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-gray-50 rounded-lg p-2">
                     <div className="text-gray-500 text-xs">Active Policies</div>
@@ -167,7 +182,6 @@ export default function Underwriters() {
                     <div className="font-bold text-blue-700">{formatCurrency(s.totalCommission || 0)}</div>
                   </div>
                 </div>
-
                 <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
                   Default Commission: <strong>{uw.defaultCommissionRate}%</strong>
                   {uw.contactPhone && <span> · {uw.contactPhone}</span>}
