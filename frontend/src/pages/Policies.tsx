@@ -31,45 +31,27 @@ interface PolicyFormProps {
   prefillClientId?: string;
 }
 
-interface FormState {
-  clientId: string;
-  underwriterId: string;
-  insuranceClass: string;
-  premiumAmount: string;
-  commissionPercent: string;
-  sumInsured: string;
-  startDate: string;
-  endDate: string;
-  paymentPlan: string;
-  renewalReminderDays: string;
-  vehicleReg: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  notes: string;
-}
-
 const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) => {
-  const [form, setForm] = useState<FormState>({
-    clientId: prefillClientId,
-    underwriterId: '',
-    insuranceClass: 'motor_private',
-    premiumAmount: '',
-    commissionPercent: '12',
-    sumInsured: '',
-    startDate: '',
-    endDate: '',
-    paymentPlan: 'full',
-    renewalReminderDays: '30',
-    vehicleReg: '',
-    vehicleMake: '',
-    vehicleModel: '',
-    notes: '',
-  });
+  const [clientId, setClientId] = useState(prefillClientId);
+  const [selectedClientName, setSelectedClientName] = useState('');
+  const [underwriterId, setUnderwriterId] = useState('');
+  const [insuranceClass, setInsuranceClass] = useState('motor_private');
+  const [premiumAmount, setPremiumAmount] = useState('');
+  const [commissionPercent, setCommissionPercent] = useState('12');
+  const [sumInsured, setSumInsured] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [paymentPlan, setPaymentPlan] = useState('full');
+  const [renewalReminderDays, setRenewalReminderDays] = useState('30');
+  const [vehicleReg, setVehicleReg] = useState('');
+  const [vehicleMake, setVehicleMake] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [notes, setNotes] = useState('');
+
   const [clients, setClients] = useState<any[]>([]);
   const [underwriters, setUnderwriters] = useState<any[]>([]);
   const [clientSearch, setClientSearch] = useState('');
-
-  const set = (k: keyof FormState, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   useEffect(() => {
     api.get('/underwriters').then(r => setUnderwriters(r.data.data)).catch(() => {});
@@ -78,15 +60,48 @@ const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) 
   useEffect(() => {
     if (clientSearch.length > 1) {
       api.get('/clients', { params: { search: clientSearch, limit: 10 } })
-        .then(r => setClients(r.data.data))
+        .then(r => { setClients(r.data.data); setShowClientDropdown(true); })
         .catch(() => {});
+    } else {
+      setShowClientDropdown(false);
     }
   }, [clientSearch]);
 
+  const selectClient = (client: any) => {
+    setClientId(client.id);
+    setSelectedClientName(`${client.fullName} (${client.phone})`);
+    setClientSearch('');
+    setShowClientDropdown(false);
+    setClients([]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!clientId) {
+      toast.error('Please search and select a client.');
+      return;
+    }
+    if (!underwriterId) {
+      toast.error('Please select an underwriter.');
+      return;
+    }
     try {
-      await api.post('/policies', form);
+      await api.post('/policies', {
+        clientId,
+        underwriterId,
+        insuranceClass,
+        premiumAmount,
+        commissionPercent,
+        sumInsured: sumInsured || null,
+        startDate,
+        endDate,
+        paymentPlan,
+        renewalReminderDays,
+        vehicleReg: vehicleReg || null,
+        vehicleMake: vehicleMake || null,
+        vehicleModel: vehicleModel || null,
+        notes: notes || null,
+      });
       toast.success('Policy created successfully!');
       onSave();
     } catch (err: any) {
@@ -94,43 +109,58 @@ const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) 
     }
   };
 
-  const commission = form.premiumAmount && form.commissionPercent
-    ? (parseFloat(form.premiumAmount) * parseFloat(form.commissionPercent)) / 100
+  const commission = premiumAmount && commissionPercent
+    ? (parseFloat(premiumAmount) * parseFloat(commissionPercent)) / 100
     : 0;
 
-  const isMotor = form.insuranceClass?.startsWith('motor');
+  const isMotor = insuranceClass?.startsWith('motor');
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
 
         {/* Client Search */}
-        <div>
-          <label className="label">Search Client <span className="text-red-500">*</span></label>
-          <input
-            className="input mb-1"
-            placeholder="Type name or phone..."
-            value={clientSearch}
-            onChange={e => setClientSearch(e.target.value)}
-          />
-          {clients.length > 0 && (
-            <select
-              className="input"
-              value={form.clientId}
-              onChange={e => { set('clientId', e.target.value); setClientSearch(''); setClients([]); }}
-              required
-            >
-              <option value="">-- Select Client --</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>)}
-            </select>
+        <div className="col-span-2">
+          <label className="label">Client <span className="text-red-500">*</span></label>
+          {selectedClientName ? (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-green-800 font-medium text-sm flex-1">✓ {selectedClientName}</span>
+              <button type="button" onClick={() => { setClientId(''); setSelectedClientName(''); }} className="text-xs text-red-500 hover:underline">Change</button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                className="input"
+                placeholder="Type client name or phone to search..."
+                value={clientSearch}
+                onChange={e => setClientSearch(e.target.value)}
+              />
+              {showClientDropdown && clients.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  {clients.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => selectClient(c)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                    >
+                      <div className="font-medium text-gray-900">{c.fullName}</div>
+                      <div className="text-xs text-gray-500">{c.phone} {c.nationalId ? `· ID: ${c.nationalId}` : ''}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {clientSearch.length > 1 && clients.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">No clients found. <Link to="/clients" className="text-blue-600 hover:underline">Add client first →</Link></p>
+              )}
+            </div>
           )}
-          {form.clientId && <p className="text-xs text-green-600 mt-1">✓ Client selected</p>}
         </div>
 
         {/* Underwriter */}
         <div>
           <label className="label">Underwriter <span className="text-red-500">*</span></label>
-          <select className="input" value={form.underwriterId} onChange={e => set('underwriterId', e.target.value)} required>
+          <select className="input" value={underwriterId} onChange={e => setUnderwriterId(e.target.value)} required>
             <option value="">Select Underwriter</option>
             {underwriters.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
@@ -139,55 +169,55 @@ const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) 
         {/* Insurance Class */}
         <div>
           <label className="label">Insurance Class <span className="text-red-500">*</span></label>
-          <select className="input" value={form.insuranceClass} onChange={e => set('insuranceClass', e.target.value)}>
+          <select className="input" value={insuranceClass} onChange={e => setInsuranceClass(e.target.value)}>
             {CLASSES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
+        </div>
+
+        {/* Premium */}
+        <div>
+          <label className="label">Premium Amount (KES) <span className="text-red-500">*</span></label>
+          <input type="number" className="input" value={premiumAmount} onChange={e => setPremiumAmount(e.target.value)} required placeholder="e.g. 25000" />
+        </div>
+
+        {/* Commission */}
+        <div>
+          <label className="label">Commission %</label>
+          <input type="number" className="input" value={commissionPercent} onChange={e => setCommissionPercent(e.target.value)} placeholder="12" />
+        </div>
+
+        {/* Sum Insured */}
+        <div>
+          <label className="label">Sum Insured (KES)</label>
+          <input type="number" className="input" value={sumInsured} onChange={e => setSumInsured(e.target.value)} placeholder="e.g. 1000000" />
         </div>
 
         {/* Payment Plan */}
         <div>
           <label className="label">Payment Plan</label>
-          <select className="input" value={form.paymentPlan} onChange={e => set('paymentPlan', e.target.value)}>
+          <select className="input" value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)}>
             <option value="full">Full Payment</option>
             <option value="two_installments">2 Installments</option>
             <option value="three_installments">3 Installments</option>
           </select>
         </div>
 
-        {/* Sum Insured */}
-        <div>
-          <label className="label">Sum Insured (KES)</label>
-          <input type="number" className="input" value={form.sumInsured} onChange={e => set('sumInsured', e.target.value)} />
-        </div>
-
-        {/* Premium */}
-        <div>
-          <label className="label">Premium Amount (KES) <span className="text-red-500">*</span></label>
-          <input type="number" className="input" value={form.premiumAmount} onChange={e => set('premiumAmount', e.target.value)} required />
-        </div>
-
-        {/* Commission */}
-        <div>
-          <label className="label">Commission %</label>
-          <input type="number" className="input" value={form.commissionPercent} onChange={e => set('commissionPercent', e.target.value)} />
-        </div>
-
         {/* Start Date */}
         <div>
           <label className="label">Start Date <span className="text-red-500">*</span></label>
-          <input type="date" className="input" value={form.startDate} onChange={e => set('startDate', e.target.value)} required />
+          <input type="date" className="input" value={startDate} onChange={e => setStartDate(e.target.value)} required />
         </div>
 
         {/* End Date */}
         <div>
           <label className="label">End Date <span className="text-red-500">*</span></label>
-          <input type="date" className="input" value={form.endDate} onChange={e => set('endDate', e.target.value)} required />
+          <input type="date" className="input" value={endDate} onChange={e => setEndDate(e.target.value)} required />
         </div>
 
         {/* Renewal Reminder */}
         <div>
           <label className="label">Renewal Reminder</label>
-          <select className="input" value={form.renewalReminderDays} onChange={e => set('renewalReminderDays', e.target.value)}>
+          <select className="input" value={renewalReminderDays} onChange={e => setRenewalReminderDays(e.target.value)}>
             <option value="7">7 Days Before</option>
             <option value="14">14 Days Before</option>
             <option value="30">30 Days Before</option>
@@ -200,15 +230,15 @@ const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) 
           <>
             <div>
               <label className="label">Vehicle Reg</label>
-              <input className="input" value={form.vehicleReg} onChange={e => set('vehicleReg', e.target.value)} placeholder="e.g. KCA 123A" />
+              <input className="input" value={vehicleReg} onChange={e => setVehicleReg(e.target.value)} placeholder="e.g. KCA 123A" />
             </div>
             <div>
               <label className="label">Vehicle Make</label>
-              <input className="input" value={form.vehicleMake} onChange={e => set('vehicleMake', e.target.value)} placeholder="e.g. Toyota" />
+              <input className="input" value={vehicleMake} onChange={e => setVehicleMake(e.target.value)} placeholder="e.g. Toyota" />
             </div>
             <div>
               <label className="label">Vehicle Model</label>
-              <input className="input" value={form.vehicleModel} onChange={e => set('vehicleModel', e.target.value)} placeholder="e.g. Corolla" />
+              <input className="input" value={vehicleModel} onChange={e => setVehicleModel(e.target.value)} placeholder="e.g. Corolla" />
             </div>
           </>
         )}
@@ -217,17 +247,17 @@ const PolicyForm = ({ onSave, onClose, prefillClientId = '' }: PolicyFormProps) 
       {/* Notes */}
       <div>
         <label className="label">Notes</label>
-        <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} />
+        <textarea className="input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
 
-      {/* Commission preview */}
+      {/* Commission Preview */}
       {commission > 0 && (
-        <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-800">
-          <strong>Commission Earned: {formatCurrency(commission)}</strong>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          💰 <strong>Commission Earned: {formatCurrency(commission)}</strong>
         </div>
       )}
 
-      <div className="flex gap-3 justify-end">
+      <div className="flex gap-3 justify-end pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
         <button type="submit" className="btn-primary">Create Policy</button>
       </div>
@@ -271,15 +301,15 @@ export default function Policies() {
       </div>
 
       <div className="card mb-4">
-        <div className="flex gap-4">
-          <select className="input" value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
+        <div className="flex gap-4 flex-wrap">
+          <select className="input max-w-xs" value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
             <option value="">All Statuses</option>
             <option value="active">Active</option>
             <option value="expired">Expired</option>
             <option value="cancelled">Cancelled</option>
             <option value="renewed">Renewed</option>
           </select>
-          <select className="input" value={filters.insuranceClass} onChange={e => setFilters(f => ({ ...f, insuranceClass: e.target.value }))}>
+          <select className="input max-w-xs" value={filters.insuranceClass} onChange={e => setFilters(f => ({ ...f, insuranceClass: e.target.value }))}>
             <option value="">All Classes</option>
             {CLASSES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
@@ -291,7 +321,7 @@ export default function Policies() {
           <EmptyState
             icon={FileText}
             title="No policies found"
-            description="Create your first policy."
+            description="Create your first policy to get started."
             action={<button onClick={() => setShowForm(true)} className="btn-primary">New Policy</button>}
           />
         ) : (
@@ -331,8 +361,8 @@ export default function Policies() {
                         <td><span className={`badge ${getStatusColor(p.status)}`}>{p.status}</span></td>
                         <td>
                           <div className="flex gap-1">
-                            <Link to={`/policies/${p.id}`} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><Eye size={14} /></Link>
-                            <Link to={`/renewals`} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><RotateCcw size={14} /></Link>
+                            <Link to={`/policies/${p.id}`} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="View"><Eye size={14} /></Link>
+                            <Link to="/renewals" className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg" title="Renew"><RotateCcw size={14} /></Link>
                           </div>
                         </td>
                       </tr>
