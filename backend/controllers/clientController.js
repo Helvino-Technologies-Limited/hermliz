@@ -36,15 +36,24 @@ exports.getClient = async (req, res) => {
   res.json({ success: true, data: client });
 };
 
+const normalizeClient = (data) => {
+  const nullIfEmpty = ['nationalId', 'email', 'kraPin'];
+  const result = { ...data };
+  nullIfEmpty.forEach(field => {
+    if (result[field] === '') result[field] = null;
+  });
+  return result;
+};
+
 exports.createClient = async (req, res) => {
-  const client = await Client.create({ ...req.body, createdBy: req.user.id });
+  const client = await Client.create({ ...normalizeClient(req.body), createdBy: req.user.id });
   res.status(201).json({ success: true, data: client });
 };
 
 exports.updateClient = async (req, res) => {
   const client = await Client.findByPk(req.params.id);
   if (!client) return res.status(404).json({ success: false, message: 'Client not found.' });
-  await client.update(req.body);
+  await client.update(normalizeClient(req.body));
   res.json({ success: true, data: client });
 };
 
